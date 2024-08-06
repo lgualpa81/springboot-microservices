@@ -1,0 +1,43 @@
+services:
+  # Postgres database for Inventory
+  db-inventory:
+    container_name: db-inventory
+    image: postgres:15.5-alpine
+    #restart: unless-stopped
+    environment:
+      POSTGRES_DB: db_inventory
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: docker123
+    command: -p 5431
+    ports:
+      - 5431:5431
+    expose:
+      - 5431
+
+  # mysql database for orders
+  db-orders:
+    container_name: db-orders
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: db_orders
+      MYSQL_USER: order_admin
+      MYSQL_PASSWORD: docker123
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - 3306:3306
+    expose:
+      - 3306
+
+  # postgres database for products
+  db-products:
+    container_name: db-products
+    image: postgres:16.2-alpine
+    environment:
+      POSTGRES_DB: db_products
+      POSTGRES_USER: products_admin
+      POSTGRES_PASSWORD: docker123
+    command: -p 5432
+    ports:
+      - 5432:5432
+    expose:
+      - 5432
