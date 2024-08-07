@@ -45,6 +45,12 @@
 			<artifactId>spring-boot-starter-actuator</artifactId>
 		</dependency>
 		<!--end security dependencies-->
+		<!--resilience4j-->
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-starter-circuitbreaker-resilience4j</artifactId>
+		</dependency>
+		<!--end resilience4j-->
 
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

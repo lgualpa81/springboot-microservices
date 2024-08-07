@@ -24,7 +24,7 @@ public class OrderService {
                     .toList();
   }
 
-  public void placeOrder(OrderRequest orderRequest) {
+  public OrderResponse placeOrder(OrderRequest orderRequest) {
     //check for inventory
     BaseResponse result = this.webClientBuilder.build()
                                                .post()
@@ -41,7 +41,8 @@ public class OrderService {
                                       .stream()
                                       .map(orderItemRequest -> mapOrderItemRequestToOrderItem(orderItemRequest, order))
                                       .toList());
-      this.orderRepository.save(order);
+      OrderEntity saveOrder = this.orderRepository.save(order);
+      return mapToOrderResponse(saveOrder);
     } else {
       throw new IllegalArgumentException("Some of the products are not in stock");
     }
