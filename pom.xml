@@ -37,6 +37,7 @@
 		<module>orderService</module>
 		<module>apiGateway</module>
 		<module>discoveryServer</module>
+		<module>notificationService</module>
 	</modules>
 	<dependencies>
 <!--		<dependency>
