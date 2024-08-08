@@ -25,15 +25,18 @@ public class SecurityConfig {
   public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
     http
             .csrf(AbstractHttpConfigurer::disable)
-            .securityMatcher("/**").authorizeHttpRequests().anyRequest().authenticated()
-            .and()
-            .oauth2ResourceServer(configure -> configure.jwt().jwtAuthenticationConverter(jwtAuthConverter()));
-
-
+            .authorizeHttpRequests(auth ->
+                    auth.requestMatchers(request ->
+                                request.getRequestURI()
+                                       .contains("/actuator/inventory"))
+                        .permitAll()
+                        .anyRequest()
+                        .authenticated())
+            .oauth2ResourceServer(configure -> configure.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthConverter())));
     return http.build();
   }
 
-  private Converter<Jwt,? extends AbstractAuthenticationToken> jwtAuthConverter() {
+  private Converter<Jwt, ? extends AbstractAuthenticationToken> jwtAuthConverter() {
     JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
     converter.setJwtGrantedAuthoritiesConverter(new KeycloakRealmRoleConverter());
 
@@ -42,16 +45,18 @@ public class SecurityConfig {
 }
 
 @SuppressWarnings("unchecked")
-class KeycloakRealmRoleConverter implements Converter<Jwt, Collection<GrantedAuthority>>{
+class KeycloakRealmRoleConverter implements Converter<Jwt, Collection<GrantedAuthority>> {
   @Override
   public Collection<GrantedAuthority> convert(Jwt jwt) {
-    if (jwt.getClaims() == null){
+    if (jwt.getClaims() == null) {
       return List.of();
     }
 
-    final Map<String, List<String>> realmAccess = (Map<String, List<String>>) jwt.getClaims().get("realm_access");
+    final Map<String, List<String>> realmAccess = (Map<String, List<String>>) jwt.getClaims()
+                                                                                 .get("realm_access");
 
-    return realmAccess.get("roles").stream()
+    return realmAccess.get("roles")
+                      .stream()
                       .map(roleName -> "ROLE_" + roleName)
                       .map(SimpleGrantedAuthority::new)
                       .collect(Collectors.toList());

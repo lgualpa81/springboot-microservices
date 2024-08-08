@@ -7,6 +7,8 @@ import com.orders.model.entity.OrderItemsEntity;
 import com.orders.model.enums.OrderStatus;
 import com.orders.repository.OrderRepository;
 import com.orders.utils.JsonUtils;
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
 import lombok.RequiredArgsConstructor;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
@@ -21,6 +23,7 @@ public class OrderService {
   private final OrderRepository orderRepository;
   private final WebClient.Builder webClientBuilder;
   private final KafkaTemplate<String, String> kafkaTemplate;
+  private final ObservationRegistry observationRegistry;
 
   public List<OrderResponse> getAllOrders() {
     List<OrderEntity> orderList = this.orderRepository.findAll();
@@ -30,32 +33,35 @@ public class OrderService {
   }
 
   public OrderResponse placeOrder(OrderRequest orderRequest) {
+    Observation inventoryObservation = Observation.createNotStarted("inventoryService", observationRegistry);
     //check for inventory
-    BaseResponse result = this.webClientBuilder.build()
-                                               .post()
-                                               .uri("lb://inventoryService/api/inventory/in-stock")
-                                               .bodyValue(orderRequest.getOrderItems())
-                                               .retrieve()
-                                               .bodyToMono(BaseResponse.class)
-                                               .block();
-    if (result != null && !result.hasErrors()) {
-      OrderEntity order = new OrderEntity();
-      order.setOrderNumber(UUID.randomUUID()
-                               .toString());
-      order.setOrderItems(orderRequest.getOrderItems()
-                                      .stream()
-                                      .map(orderItemRequest -> mapOrderItemRequestToOrderItem(orderItemRequest, order))
-                                      .toList());
-      OrderEntity saveOrder = this.orderRepository.save(order);
-      //TODO: Send message to order topic
-      this.kafkaTemplate.send("orders-topic", JsonUtils.toJson(
-              new OrderEvent(saveOrder.getOrderNumber(), saveOrder.getOrderItems()
-                                                                  .size(), OrderStatus.PLACED)
-      ));
-      return mapToOrderResponse(saveOrder);
-    } else {
-      throw new IllegalArgumentException("Some of the products are not in stock");
-    }
+    return inventoryObservation.observe(() -> {
+      BaseResponse result = this.webClientBuilder.build()
+                                                 .post()
+                                                 .uri("lb://inventoryService/api/inventory/in-stock")
+                                                 .bodyValue(orderRequest.getOrderItems())
+                                                 .retrieve()
+                                                 .bodyToMono(BaseResponse.class)
+                                                 .block();
+      if (result != null && !result.hasErrors()) {
+        OrderEntity order = new OrderEntity();
+        order.setOrderNumber(UUID.randomUUID()
+                                 .toString());
+        order.setOrderItems(orderRequest.getOrderItems()
+                                        .stream()
+                                        .map(orderItemRequest -> mapOrderItemRequestToOrderItem(orderItemRequest, order))
+                                        .toList());
+        OrderEntity saveOrder = this.orderRepository.save(order);
+        //TODO: Send message to order topic
+        this.kafkaTemplate.send("orders-topic", JsonUtils.toJson(
+                new OrderEvent(saveOrder.getOrderNumber(), saveOrder.getOrderItems()
+                                                                    .size(), OrderStatus.PLACED)
+        ));
+        return mapToOrderResponse(saveOrder);
+      } else {
+        throw new IllegalArgumentException("Some of the products are not in stock");
+      }
+    });
   }
 
   private OrderResponse mapToOrderResponse(OrderEntity order) {
